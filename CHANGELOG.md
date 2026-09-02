@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic model discovery:** The selectable catalog is refreshed from Antigravity instead of a hardcoded ID list, so newly enabled models (for example Gemini 3.8 Flash) appear in Pi after model refresh. Last-known-good cache plus the previous static catalog remain as fallbacks.
+
 ## [0.6.0] - 2026-09-02
 
 ### Added

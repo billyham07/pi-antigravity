@@ -39,7 +39,10 @@ The extension already has Antigravity OAuth, Cloud Code Assist transport, stream
 Add functions roughly along these lines:
 
 ```ts
-export async function discoverAntigravityModels(apiKey: string, signal?: AbortSignal): Promise<{
+export async function discoverAntigravityModels(
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<{
   models: ProviderModelConfig[];
   routing: Record<string, AntigravityRouting>;
 }>;
