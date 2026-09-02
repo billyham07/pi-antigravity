@@ -3,6 +3,7 @@ import { defaultProjectId, stableProjectId } from "../src/client/index.js";
 import { StopReason } from "../src/types/enums.js";
 import {
   ANTIGRAVITY_MODELS,
+  forbidsSilentRuntimeFallback,
   getMaxOutputTokens,
   getAntigravityRequestModelId,
   getFallbackRuntimeModel,
@@ -42,6 +43,12 @@ const assert = {
 const route = (model: string, effort?: string) => getAntigravityRequestModelId(model, effort);
 
 const routeCases: Array<[string, string | undefined, string]> = [
+  ["gemini-3.8-flash", undefined, "gemini-3.8-flash-low"],
+  ["gemini-3.8-flash", "off", "gemini-3.8-flash-low"],
+  ["gemini-3.8-flash", "low", "gemini-3.8-flash-low"],
+  ["gemini-3.8-flash", "medium", "gemini-3.8-flash-medium"],
+  ["gemini-3.8-flash", "high", "gemini-3.8-flash-high"],
+  ["gemini-3.8-flash", "xhigh", "gemini-3.8-flash-high"],
   ["gemini-3.7-flash", undefined, "gemini-3.7-flash-low"],
   ["gemini-3.7-flash", "off", "gemini-3.7-flash-low"],
   ["gemini-3.7-flash", "minimal", "gemini-3.7-flash-low"],
@@ -78,6 +85,7 @@ for (const [model, effort, expected] of routeCases) {
 
 const modelIds = new Set(ANTIGRAVITY_MODELS.map((model) => model.id));
 const expectedModels = [
+  "gemini-3.8-flash",
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash",
@@ -96,6 +104,7 @@ for (const expected of expectedModels) {
 }
 
 const expectedThinkingLevels: Record<string, string[]> = {
+  "gemini-3.8-flash": ["low", "medium", "high"],
   "gemini-3.7-flash": ["low", "medium", "high"],
   "gemini-3.6-flash": ["low", "medium", "high"],
   "gemini-3.5-flash": ["low", "medium", "high"],
@@ -245,7 +254,7 @@ assert.match(
 );
 assert.match(
   friendlyAntigravityError(404, "Requested entity was not found"),
-  /not available right now/i,
+  /not available on the current Antigravity auth surface/i,
 );
 
 const seedA = stableProjectId("user@example.com");
@@ -404,6 +413,11 @@ assert.equal(
 assert.equal(getFallbackRuntimeModel("gemini-3.7-flash"), "gemini-3.6-flash-low");
 assert.equal(getFallbackRuntimeModel("gemini-3.6-flash-low"), undefined);
 assert.equal(getFallbackRuntimeModel("claude-sonnet-4-6"), undefined);
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-low"), undefined);
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-medium"), undefined);
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-high"), undefined);
+assert.ok(forbidsSilentRuntimeFallback("gemini-3.8-flash", "gemini-3.8-flash-medium"));
+assert.ok(!forbidsSilentRuntimeFallback("gemini-3.7-flash", "gemini-3.7-flash-medium"));
 
 // Test buildRequest output token clamping
 const dummyContext: Context = {
@@ -465,6 +479,25 @@ const flash36 = buildRequest(
   "gemini-3.6-flash-medium",
 );
 assert.equal(flash36.request.generationConfig?.thinkingConfig?.thinkingLevel, "MEDIUM");
+
+const flash38Model = { ...model, id: "gemini-3.8-flash", maxTokens: 65536 };
+const flash38Low = buildRequest(
+  flash38Model,
+  dummyContext,
+  "test-proj",
+  { reasoning: "low" },
+  "gemini-3.8-flash-low",
+);
+assert.equal(flash38Low.request.generationConfig?.thinkingConfig?.thinkingBudget, 1000);
+assert.equal(flash38Low.request.generationConfig?.thinkingConfig?.thinkingLevel, undefined);
+const flash38High = buildRequest(
+  flash38Model,
+  dummyContext,
+  "test-proj",
+  { reasoning: "high" },
+  "gemini-3.8-flash-high",
+);
+assert.equal(flash38High.request.generationConfig?.thinkingConfig?.thinkingBudget, -1);
 
 const flash35 = buildRequest(
   { ...model, id: "gemini-3.5-flash", maxTokens: 65536 },

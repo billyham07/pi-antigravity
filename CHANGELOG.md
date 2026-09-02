@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic model discovery:** The selectable catalog is refreshed from Antigravity and grouped into public Pi IDs. Models in the live auth payload appear without a catalog-only release. A seed list (including Gemini 3.8 Flash routing) is kept for cold-start/discoverability; 404/unavailable is surfaced and never silently downgraded to another generation. Visibility remains scoped to the current OAuth surface.
+
 ## [0.6.0] - 2026-09-02
 
 ### Added
