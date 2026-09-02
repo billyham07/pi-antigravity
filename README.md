@@ -93,18 +93,19 @@ The extension also registers a `generate_image` tool the model can call. Images 
 
 ## Models and routing
 
-After you sign in, the provider refreshes its catalog from Antigravity (`fetchAvailableModels`) and groups runtime thinking variants into public Pi model IDs. Newly enabled models — for example a new Gemini Flash generation — become selectable after that refresh without waiting for an extension release. A last-known-good cache is kept for offline/cold start; the static table below is only the conservative fallback and a routing reference.
+After you sign in, the provider refreshes its catalog from Antigravity (`fetchAvailableModels`) and groups runtime thinking variants into public Pi model IDs. Models that appear in that payload become selectable without waiting for an extension release. A seed catalog plus last-known-good cache cover cold start and discoverability; they do not change the runtime ID that is actually requested.
 
-Use `/antigravity.models` to see live availability and quota for your account. Runtime names such as `gemini-3.8-flash-low` / `-medium` / `-high` collapse to `gemini-3.8-flash` with those thinking levels.
+Live visibility is scoped to the current OAuth/auth surface. The Antigravity CLI/IDE may advertise a model (for example Gemini 3.8 Flash) that this extension's token still 404s. That error is shown as-is — the provider never silently downgrades to another generation. Use `/antigravity.models` to see what the current auth catalog actually returns. Runtime names such as `gemini-3.8-flash-low` / `-medium` / `-high` collapse to `gemini-3.8-flash` with those thinking levels.
 
 ### Why Claude and GPT-OSS appear
 
 Antigravity / Cloud Code Assist exposes a multi-provider catalog. Depending on your account, its Google-authenticated API can advertise Google Gemini models alongside Claude models served through Anthropic Vertex and GPT-OSS served through OpenAI Vertex. This extension intentionally exposes those advertised Claude and GPT-OSS models through the single `antigravity` provider; they are not separate Pi providers and do not use a separate Anthropic or OpenAI login.
 
-The backend's display labels do not always match its runtime IDs. For example, `gemini-3.5-flash-extra-low`, `gemini-3.5-flash-low`, and `gemini-3-flash-agent` can be displayed as Gemini 3.5 Flash Low, Medium, and High. Gemini 3.6 and 3.7 Flash use per-effort runtime IDs and send `thinkingLevel`; Gemini 3.5 Flash and 3.1 Pro send `thinkingBudget`.
+The backend's display labels do not always match its runtime IDs. For example, `gemini-3.5-flash-extra-low`, `gemini-3.5-flash-low`, and `gemini-3-flash-agent` can be displayed as Gemini 3.5 Flash Low, Medium, and High. Gemini 3.6 and 3.7 Flash use per-effort runtime IDs and send `thinkingLevel`; Gemini 3.8 Flash, 3.5 Flash, and 3.1 Pro send `thinkingBudget`.
 
 | Public model ID     | Input       | Thinking levels shown | Max output tokens | Request routing                                                                                    |
 | ------------------- | ----------- | --------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| `gemini-3.8-flash`  | Text, image | Low, Medium, High     | 65,536            | low → `gemini-3.8-flash-low`; medium → `gemini-3.8-flash-medium`; high → `gemini-3.8-flash-high`   |
 | `gemini-3.7-flash`  | Text, image | Low, Medium, High     | 65,536            | low → `gemini-3.7-flash-low`; medium → `gemini-3.7-flash-medium`; high → `gemini-3.7-flash-high`   |
 | `gemini-3.6-flash`  | Text, image | Low, Medium, High     | 65,536            | low → `gemini-3.6-flash-low`; medium → `gemini-3.6-flash-medium`; high → `gemini-3.6-flash-high`   |
 | `gemini-3.5-flash`  | Text, image | Low, Medium, High     | 65,536            | low → `gemini-3.5-flash-extra-low`; medium → `gemini-3.5-flash-low`; high → `gemini-3-flash-agent` |
@@ -118,6 +119,7 @@ To limit which models Pi cycles through, enable specific entries in `~/.pi/agent
 ```json
 {
   "models": {
+    "antigravity/gemini-3.8-flash": { "enabled": true },
     "antigravity/gemini-3.7-flash": { "enabled": true },
     "antigravity/gemini-3.6-flash": { "enabled": true },
     "antigravity/gemini-3.5-flash": { "enabled": true },

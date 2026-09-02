@@ -8,8 +8,10 @@ import {
   applyAntigravityCatalog,
   buildAntigravityCatalog,
   getAntigravityRequestModelId,
+  getFallbackRuntimeModel,
   getThinkingConfig,
   humanizePublicId,
+  mergeWithSeedCatalog,
   readCatalogCache,
   resetAntigravityCatalogForTests,
   resolvedCatalog,
@@ -75,7 +77,7 @@ const currentCatalog: Record<string, ModelInfoRaw> = {
 const catalog = buildAntigravityCatalog(currentCatalog, fallback);
 const ids = new Set(catalog.models.map((model) => model.id));
 
-assert.ok(ids.has("gemini-3.8-flash"), "discovers gemini-3.8-flash family missing from fallback");
+assert.ok(ids.has("gemini-3.8-flash"), "gemini-3.8-flash is selectable");
 assert.ok(ids.has("gemini-3.7-flash"), "preserves Gemini 3.7");
 assert.ok(ids.has("claude-sonnet-4-6"), "preserves Claude Sonnet");
 assert.ok(ids.has("claude-opus-4-6"), "preserves Claude Opus");
@@ -123,11 +125,25 @@ assert.equal(
 assert.equal(getAntigravityRequestModelId("claude-opus-4-6", "high"), "claude-opus-4-6-thinking");
 assert.equal(getAntigravityRequestModelId("gpt-oss-120b", "medium"), "gpt-oss-120b-medium");
 assert.equal(
-  getThinkingConfig("gemini-3.8-flash", "medium")?.thinkingLevel,
-  "MEDIUM",
-  "new Gemini families send thinkingLevel",
+  getThinkingConfig("gemini-3.8-flash", "medium")?.thinkingBudget,
+  4000,
+  "Gemini 3.8 sends thinkingBudget, not thinkingLevel",
 );
+assert.equal(getThinkingConfig("gemini-3.8-flash", "high")?.thinkingBudget, -1);
+assert.equal(getThinkingConfig("gemini-3.8-flash", "medium")?.thinkingLevel, undefined);
 assert.equal(getThinkingConfig("gemini-3.5-flash", "medium")?.thinkingBudget, 4000);
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-high"), undefined);
+
+const liveWithout38 = { ...currentCatalog };
+delete liveWithout38["gemini-3.8-flash-low"];
+delete liveWithout38["gemini-3.8-flash-medium"];
+delete liveWithout38["gemini-3.8-flash-high"];
+const merged = mergeWithSeedCatalog(buildAntigravityCatalog(liveWithout38, fallback), fallback);
+assert.ok(
+  merged.models.some((model) => model.id === "gemini-3.8-flash"),
+  "seed keeps 3.8 selectable when the live auth catalog omits it",
+);
+assert.equal(merged.routing["gemini-3.8-flash"]?.routing?.high, "gemini-3.8-flash-high");
 
 const emptyDiscovered = buildAntigravityCatalog({}, fallback);
 assert.equal(emptyDiscovered.models.length, 0, "empty backend yields no public models");

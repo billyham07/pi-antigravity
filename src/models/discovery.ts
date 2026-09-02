@@ -11,7 +11,12 @@ import {
   PROVIDER_ID,
 } from "./models.js";
 import { isUsableCatalog, readCatalogCache, writeCatalogCache } from "./cache.js";
-import { buildAntigravityCatalog, resolvedCatalog, type AntigravityCatalog } from "./grouping.js";
+import {
+  buildAntigravityCatalog,
+  mergeWithSeedCatalog,
+  resolvedCatalog,
+  type AntigravityCatalog,
+} from "./grouping.js";
 
 const fallbackCatalog = (): AntigravityCatalog => ({
   models: ANTIGRAVITY_MODELS,
@@ -36,7 +41,11 @@ export async function discoverAntigravityModels(
   const creds = parseApiKey(apiKey);
   const available = await fetchAvailableModelsCatalog(creds.token, creds.projectId, signal);
   const models = available.data.models ?? {};
-  return buildAntigravityCatalog(models, fallbackCatalog());
+  const seed = fallbackCatalog();
+  const live = buildAntigravityCatalog(models, seed);
+  // Empty live payload must not look like a successful catalog (would wipe extras).
+  if (live.models.length === 0) return live;
+  return mergeWithSeedCatalog(live, seed);
 }
 
 export async function refreshAntigravityModels(

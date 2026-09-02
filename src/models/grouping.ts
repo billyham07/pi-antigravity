@@ -73,6 +73,23 @@ export function resolvedCatalog(
   return current;
 }
 
+/** Keep seed IDs for discoverability even when the live auth catalog omits them. */
+export function mergeWithSeedCatalog(
+  discovered: AntigravityCatalog,
+  seed: AntigravityCatalog,
+): AntigravityCatalog {
+  const models = new Map<string, ProviderModelConfig>();
+  const routing: Record<string, AntigravityRouting> = { ...seed.routing };
+  for (const model of seed.models) models.set(model.id, model);
+  for (const model of discovered.models) {
+    if (!models.has(model.id)) models.set(model.id, model);
+    if (!seed.routing[model.id] && discovered.routing[model.id]) {
+      routing[model.id] = discovered.routing[model.id];
+    }
+  }
+  return { models: [...models.values()].sort(comparePublicModels), routing };
+}
+
 export function buildAntigravityCatalog(
   rawModels: Record<string, ModelInfoRaw>,
   fallback: AntigravityCatalog,

@@ -9,14 +9,10 @@ export const PROVIDER_NAME = "Antigravity";
 /**
  * Public selectable model IDs → backend request model IDs by thinking effort.
  *
- * Catalog mirrors `agy models` (Antigravity CLI), which currently advertises:
- * - Gemini 3.7 Flash (Low / Medium / High)
- * - Gemini 3.6 Flash (Low / Medium / High)
- * - Gemini 3.5 Flash (Low / Medium / High)
- * - Gemini 3.1 Pro (Low / High)
- * - Claude Sonnet 4.6 (Thinking)
- * - Claude Opus 4.6 (Thinking)
- * - GPT-OSS 120B (Medium)
+ * Seed catalog for cold-start / discoverability. Live fetchAvailableModels may
+ * omit models that the Antigravity CLI/IDE shows for the same account (auth-surface
+ * visibility). Seed entries must still request their own runtime IDs — never a
+ * quieter generation.
  *
  * Pi exposes those as public model IDs and only surfaces the exact thinking levels
  * advertised by the backend for each model.
@@ -55,6 +51,17 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
       xhigh: "gemini-pro-agent",
     },
     defaultRequestId: "gemini-3.1-pro-low",
+  },
+  "gemini-3.8-flash": {
+    off: "gemini-3.8-flash-low",
+    routing: {
+      minimal: "gemini-3.8-flash-low",
+      low: "gemini-3.8-flash-low",
+      medium: "gemini-3.8-flash-medium",
+      high: "gemini-3.8-flash-high",
+      xhigh: "gemini-3.8-flash-high",
+    },
+    defaultRequestId: "gemini-3.8-flash-low",
   },
   "gemini-3.7-flash": {
     off: "gemini-3.7-flash-low",
@@ -107,6 +114,10 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
  * Requesting more than these limits returns a 400 Bad Request from the API.
  */
 export const RUNTIME_MAX_OUTPUT_TOKENS: Record<string, number> = {
+  "gemini-3.8-flash": 65536,
+  "gemini-3.8-flash-low": 65536,
+  "gemini-3.8-flash-medium": 65536,
+  "gemini-3.8-flash-high": 65536,
   "gemini-3.7-flash": 65536,
   "gemini-3.7-flash-tiered": 65536,
   // Retain rollout-era IDs for compatibility with pinned runtime overrides.
@@ -198,6 +209,16 @@ const thinkingLevelMaps = {
 
 /** Same set as `agy models`, collapsed to public Pi model IDs. */
 export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
+  {
+    id: "gemini-3.8-flash",
+    name: "Gemini 3.8 Flash (Antigravity)",
+    reasoning: true,
+    thinkingLevelMap: thinkingLevelMaps.lowMediumHigh,
+    input: ["text", "image"],
+    cost: geminiFlashCost,
+    contextWindow: 1048576,
+    maxTokens: 65536,
+  },
   {
     id: "gemini-3.7-flash",
     name: "Gemini 3.7 Flash (Antigravity)",
@@ -331,7 +352,13 @@ export function getAntigravityRequestModelId(modelId: string, effort: string | u
  * If a next-gen model (e.g. Gemini 3.7 Flash) is not yet available on the backend,
  * provide a fallback runtime model ID (e.g. Gemini 3.6 Flash) to maintain availability.
  */
+export function forbidsSilentRuntimeFallback(publicId: string, runtimeModel: string): boolean {
+  return publicId.startsWith("gemini-3.8-") || runtimeModel.startsWith("gemini-3.8-");
+}
+
 export function getFallbackRuntimeModel(runtimeModel: string, effort?: string): string | undefined {
+  // Gemini 3.8 must 404/unavailable out loud. Never silently downgrade to 3.7.
+  if (runtimeModel.startsWith("gemini-3.8-")) return undefined;
   if (runtimeModel === "gemini-3.7-flash-tiered") {
     return getAntigravityRequestModelId("gemini-3.6-flash", effort);
   }
@@ -353,6 +380,9 @@ export type ThinkingWire = {
 };
 
 export const ANTIGRAVITY_MODEL_ENUM: Record<string, string> = {
+  "gemini-3.8-flash-low": "MODEL_PLACEHOLDER_M320",
+  "gemini-3.8-flash-medium": "MODEL_PLACEHOLDER_M319",
+  "gemini-3.8-flash-high": "MODEL_PLACEHOLDER_M318",
   "gemini-3.5-flash-extra-low": "MODEL_PLACEHOLDER_M187",
   "gemini-3.5-flash-low": "MODEL_PLACEHOLDER_M20",
   "gemini-3-flash-agent": "MODEL_PLACEHOLDER_M132",
@@ -370,6 +400,13 @@ export function getThinkingConfig(
   modelId: string,
   effort: string | undefined,
 ): ThinkingWire | undefined {
+  // CLI catalog: 3.8 uses thinkingBudget (low 1000, medium 4000, high -1 dynamic), not thinkingLevel.
+  if (modelId === "gemini-3.8-flash") {
+    if (!effort || effort === "off") return { includeThoughts: false, thinkingBudget: 0 };
+    const thinkingBudget =
+      effort === "high" || effort === "xhigh" ? -1 : effort === "medium" ? 4_000 : 1_000;
+    return { includeThoughts: true, thinkingBudget };
+  }
   if (modelId === "gemini-3.5-flash") {
     if (!effort || effort === "off") return { includeThoughts: false, thinkingBudget: 0 };
     const thinkingBudget =

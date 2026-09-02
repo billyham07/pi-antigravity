@@ -20,7 +20,7 @@ The extension already has Antigravity OAuth, Cloud Code Assist transport, stream
 4. Preserve runtime IDs in a routing table used by `getAntigravityRequestModelId()`.
 5. Expose the normalized catalog through Pi's provider model-refresh mechanism when available.
 6. Maintain a last-known-good cache so startup does not depend on network access and transient discovery failures do not remove working models.
-7. Keep a small static fallback catalog for cold start / compatibility only; it must not be the source of truth once live discovery succeeds.
+7. Keep a small static seed catalog for cold start and discoverability. Seed IDs must request their own runtime IDs; they must not rewrite the selected model to another generation.
 
 ## Design constraints
 
@@ -31,6 +31,9 @@ The extension already has Antigravity OAuth, Cloud Code Assist transport, stream
 - Existing pinned runtime overrides (`ANTIGRAVITY_RUNTIME_MODEL`) must continue to work.
 - Existing routing workarounds such as `gemini-pro-agent` should remain expressible as explicit overrides on top of discovery.
 - Existing `/antigravity.models`, `/antigravity.usage`, diagnostics, image generation, and model-routing tests must keep working.
+- Backend model visibility is scoped to the current OAuth/auth surface. Dynamic discovery does not by itself enable models the token cannot see.
+- **No silent runtime downgrade.** If the selected model 404s (for example Gemini 3.8 Flash on this auth surface), surface the error. Never remap it to 3.7 or another model.
+- Investigating a separate Antigravity CLI OAuth client / entitlement field is an auth-layer task, not part of model discovery.
 
 ## Suggested implementation
 
